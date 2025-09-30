@@ -1,0 +1,234 @@
+# MS5.0 Floor Dashboard - Backend Docker Compose (Staging Environment)
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: ms5_postgres_staging
+    environment:
+      POSTGRES_DB: factory_telemetry_staging
+      POSTGRES_USER: ms5_user_staging
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_STAGING}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_data_staging:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - ms5_network_staging
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ms5_user_staging -d factory_telemetry_staging"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: ms5_redis_staging
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD_STAGING}
+    volumes:
+      - redis_data_staging:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - ms5_network_staging
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MS5.0 Backend API
+  backend:
+    build: 
+      context: .
+      dockerfile: Dockerfile.staging
+    container_name: ms5_backend_staging
+    environment:
+      - ENVIRONMENT=staging
+      - DATABASE_URL=postgresql+asyncpg://ms5_user_staging:${POSTGRES_PASSWORD_STAGING}@postgres:5432/factory_telemetry_staging
+      - REDIS_URL=redis://:${REDIS_PASSWORD_STAGING}@redis:6379/0
+      - SECRET_KEY=${SECRET_KEY_STAGING}
+      - JWT_ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=60
+      - REFRESH_TOKEN_EXPIRE_DAYS=7
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS_STAGING}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS_STAGING}
+      - LOG_LEVEL=INFO
+      - DEBUG=false
+      - CORS_ORIGINS=${CORS_ORIGINS_STAGING}
+    volumes:
+      - ./logs:/app/logs
+      - ./reports:/app/reports
+      - ./uploads:/app/uploads
+      - ./temp:/app/temp
+    ports:
+      - "8000:8000"
+    networks:
+      - ms5_network_staging
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: ms5_nginx_staging
+    volumes:
+      - ./nginx.staging.conf:/etc/nginx/nginx.conf:ro
+      - ./static:/var/www/static:ro
+      - ./ssl/staging:/etc/nginx/ssl:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - ms5_network_staging
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Prometheus Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ms5_prometheus_staging
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=72h'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./prometheus.staging.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data_staging:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - ms5_network_staging
+    restart: unless-stopped
+
+  # Grafana Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ms5_grafana_staging
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD_STAGING}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_DOMAIN=${GRAFANA_DOMAIN_STAGING}
+    volumes:
+      - grafana_data_staging:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3000:3000"
+    networks:
+      - ms5_network_staging
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # MinIO Object Storage
+  minio:
+    image: minio/minio:latest
+    container_name: ms5_minio_staging
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_USER_STAGING}
+      - MINIO_ROOT_PASSWORD=${MINIO_PASSWORD_STAGING}
+    volumes:
+      - minio_data_staging:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - ms5_network_staging
+    restart: unless-stopped
+
+  # Celery Worker
+  celery_worker:
+    build: 
+      context: .
+      dockerfile: Dockerfile.staging
+    container_name: ms5_celery_worker_staging
+    command: celery -A app.celery worker --loglevel=info --concurrency=2
+    environment:
+      - ENVIRONMENT=staging
+      - DATABASE_URL=postgresql+asyncpg://ms5_user_staging:${POSTGRES_PASSWORD_STAGING}@postgres:5432/factory_telemetry_staging
+      - REDIS_URL=redis://:${REDIS_PASSWORD_STAGING}@redis:6379/0
+      - SECRET_KEY=${SECRET_KEY_STAGING}
+    volumes:
+      - ./logs:/app/logs
+      - ./reports:/app/reports
+      - ./uploads:/app/uploads
+      - ./temp:/app/temp
+    networks:
+      - ms5_network_staging
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  # Celery Beat Scheduler
+  celery_beat:
+    build: 
+      context: .
+      dockerfile: Dockerfile.staging
+    container_name: ms5_celery_beat_staging
+    command: celery -A app.celery beat --loglevel=info
+    environment:
+      - ENVIRONMENT=staging
+      - DATABASE_URL=postgresql+asyncpg://ms5_user_staging:${POSTGRES_PASSWORD_STAGING}@postgres:5432/factory_telemetry_staging
+      - REDIS_URL=redis://:${REDIS_PASSWORD_STAGING}@redis:6379/0
+      - SECRET_KEY=${SECRET_KEY_STAGING}
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - ms5_network_staging
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  # Flower Monitoring (Celery)
+  flower:
+    build: 
+      context: .
+      dockerfile: Dockerfile.staging
+    container_name: ms5_flower_staging
+    command: celery -A app.celery flower --port=5555
+    environment:
+      - ENVIRONMENT=staging
+      - DATABASE_URL=postgresql+asyncpg://ms5_user_staging:${POSTGRES_PASSWORD_STAGING}@postgres:5432/factory_telemetry_staging
+      - REDIS_URL=redis://:${REDIS_PASSWORD_STAGING}@redis:6379/0
+      - SECRET_KEY=${SECRET_KEY_STAGING}
+    ports:
+      - "5555:5555"
+    networks:
+      - ms5_network_staging
+    depends_on:
+      - celery_worker
+    restart: unless-stopped
+
+volumes:
+  postgres_data_staging:
+  redis_data_staging:
+  prometheus_data_staging:
+  grafana_data_staging:
+  minio_data_staging:
+
+networks:
+  ms5_network_staging:
+    driver: bridge

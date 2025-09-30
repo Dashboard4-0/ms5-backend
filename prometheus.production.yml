@@ -1,0 +1,187 @@
+# MS5.0 Floor Dashboard - Prometheus Configuration (Production Environment)
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: 'production'
+    cluster: 'ms5-production'
+    region: 'us-east-1'
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+
+  # MS5.0 Backend API (Load Balanced)
+  - job_name: 'ms5-backend'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    honor_labels: true
+
+  # PostgreSQL Database
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 15s
+
+  # Redis Cache
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 15s
+
+  # Nginx
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+    scrape_interval: 15s
+
+  # Node Exporter (System metrics)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+
+  # Grafana
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+    scrape_interval: 30s
+
+  # MinIO
+  - job_name: 'minio'
+    static_configs:
+      - targets: ['minio-exporter:9290']
+    scrape_interval: 30s
+
+  # Celery Worker
+  - job_name: 'celery-worker'
+    static_configs:
+      - targets: ['flower:5555']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # AlertManager
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+    scrape_interval: 30s
+
+  # Application specific metrics - Production Lines
+  - job_name: 'ms5-production-lines'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/metrics/production/lines'
+    scrape_interval: 30s
+    honor_labels: true
+
+  # Application specific metrics - Equipment Status
+  - job_name: 'ms5-equipment-status'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/metrics/equipment/status'
+    scrape_interval: 30s
+    honor_labels: true
+
+  # Application specific metrics - OEE Calculations
+  - job_name: 'ms5-oee-metrics'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/metrics/oee'
+    scrape_interval: 60s
+    honor_labels: true
+
+  # Application specific metrics - Andon Events
+  - job_name: 'ms5-andon-events'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/metrics/andon/events'
+    scrape_interval: 30s
+    honor_labels: true
+
+  # Application specific metrics - Andon Escalations
+  - job_name: 'ms5-andon-escalations'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/metrics/andon/escalations'
+    scrape_interval: 30s
+    honor_labels: true
+
+  # Application specific metrics - Job Assignments
+  - job_name: 'ms5-job-assignments'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/metrics/jobs/assignments'
+    scrape_interval: 60s
+    honor_labels: true
+
+  # Application specific metrics - WebSocket Connections
+  - job_name: 'ms5-websocket-connections'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/metrics/websocket/connections'
+    scrape_interval: 30s
+    honor_labels: true
+
+  # Application specific metrics - API Performance
+  - job_name: 'ms5-api-performance'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/metrics/api/performance'
+    scrape_interval: 30s
+    honor_labels: true
+
+  # Application specific metrics - Database Performance
+  - job_name: 'ms5-database-performance'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/metrics/database/performance'
+    scrape_interval: 60s
+    honor_labels: true
+
+  # Application specific metrics - Error Rates
+  - job_name: 'ms5-error-rates'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/metrics/errors'
+    scrape_interval: 30s
+    honor_labels: true
+
+  # Application specific metrics - User Activity
+  - job_name: 'ms5-user-activity'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/metrics/users/activity'
+    scrape_interval: 60s
+    honor_labels: true
+
+  # Application specific metrics - System Health
+  - job_name: 'ms5-system-health'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/metrics/system/health'
+    scrape_interval: 30s
+    honor_labels: true
+
+  # External service monitoring (if applicable)
+  - job_name: 'external-services'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/metrics/external/services'
+    scrape_interval: 60s
+    honor_labels: true

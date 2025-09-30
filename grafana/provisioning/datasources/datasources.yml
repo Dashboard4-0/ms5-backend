@@ -1,0 +1,47 @@
+# MS5.0 Floor Dashboard - Grafana Data Sources Configuration
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+    jsonData:
+      timeInterval: "5s"
+      queryTimeout: "60s"
+      httpMethod: "POST"
+    secureJsonData: {}
+
+  - name: PostgreSQL
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    database: factory_telemetry
+    user: ms5_user_production
+    secureJsonData:
+      password: ${POSTGRES_PASSWORD_PRODUCTION}
+    jsonData:
+      sslmode: disable
+      maxOpenConns: 100
+      maxIdleConns: 100
+      maxIdleConnsAuto: true
+      connMaxLifetime: 14400
+      postgresVersion: 1500
+      timescaledb: true
+    editable: true
+
+  - name: Redis
+    type: redis-datasource
+    access: proxy
+    url: redis:6379
+    database: 0
+    secureJsonData:
+      password: ${REDIS_PASSWORD_PRODUCTION}
+    jsonData:
+      poolSize: 10
+      timeout: 5
+      pingInterval: 0
+    editable: true

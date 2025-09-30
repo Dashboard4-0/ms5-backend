@@ -1,0 +1,396 @@
+# MS5.0 Floor Dashboard - Backend Docker Compose (Production Environment)
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: ms5_postgres_production
+    environment:
+      POSTGRES_DB: factory_telemetry
+      POSTGRES_USER: ms5_user_production
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_PRODUCTION}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_data_production:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+      - ./backups:/backups
+    ports:
+      - "5432:5432"
+    networks:
+      - ms5_network_production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ms5_user_production -d factory_telemetry"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: ms5_redis_production
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD_PRODUCTION} --maxmemory 1gb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data_production:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - ms5_network_production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  # MS5.0 Backend API
+  backend:
+    build: 
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: ms5_backend_production
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql+asyncpg://ms5_user_production:${POSTGRES_PASSWORD_PRODUCTION}@postgres:5432/factory_telemetry
+      - REDIS_URL=redis://:${REDIS_PASSWORD_PRODUCTION}@redis:6379/0
+      - SECRET_KEY=${SECRET_KEY_PRODUCTION}
+      - JWT_ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - REFRESH_TOKEN_EXPIRE_DAYS=7
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS_PRODUCTION}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS_PRODUCTION}
+      - LOG_LEVEL=WARNING
+      - DEBUG=false
+      - CORS_ORIGINS=${CORS_ORIGINS_PRODUCTION}
+      - WORKERS=${WORKERS_PRODUCTION}
+      - MAX_CONNECTIONS=${MAX_CONNECTIONS_PRODUCTION}
+    volumes:
+      - ./logs:/app/logs
+      - ./reports:/app/reports
+      - ./uploads:/app/uploads
+      - ./temp:/app/temp
+    ports:
+      - "8000:8000"
+    networks:
+      - ms5_network_production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: ms5_nginx_production
+    volumes:
+      - ./nginx.production.conf:/etc/nginx/nginx.conf:ro
+      - ./static:/var/www/static:ro
+      - ./ssl/production:/etc/nginx/ssl:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - ms5_network_production
+    depends_on:
+      - backend
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # Prometheus Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ms5_prometheus_production
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.size=10GB'
+    volumes:
+      - ./prometheus.production.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus_data_production:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - ms5_network_production
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  # Grafana Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ms5_grafana_production
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD_PRODUCTION}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_DOMAIN=${GRAFANA_DOMAIN_PRODUCTION}
+      - GF_SECURITY_COOKIE_SECURE=true
+      - GF_SECURITY_COOKIE_SAMESITE=strict
+      - GF_AUTH_DISABLE_LOGIN_FORM=false
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+    volumes:
+      - grafana_data_production:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3000:3000"
+    networks:
+      - ms5_network_production
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  # MinIO Object Storage
+  minio:
+    image: minio/minio:latest
+    container_name: ms5_minio_production
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_USER_PRODUCTION}
+      - MINIO_ROOT_PASSWORD=${MINIO_PASSWORD_PRODUCTION}
+    volumes:
+      - minio_data_production:/data
+      - ./backups:/backups
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - ms5_network_production
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  # Celery Worker
+  celery_worker:
+    build: 
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: ms5_celery_worker_production
+    command: celery -A app.celery worker --loglevel=info --concurrency=4 --max-tasks-per-child=1000
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql+asyncpg://ms5_user_production:${POSTGRES_PASSWORD_PRODUCTION}@postgres:5432/factory_telemetry
+      - REDIS_URL=redis://:${REDIS_PASSWORD_PRODUCTION}@redis:6379/0
+      - SECRET_KEY=${SECRET_KEY_PRODUCTION}
+    volumes:
+      - ./logs:/app/logs
+      - ./reports:/app/reports
+      - ./uploads:/app/uploads
+      - ./temp:/app/temp
+    networks:
+      - ms5_network_production
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  # Celery Beat Scheduler
+  celery_beat:
+    build: 
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: ms5_celery_beat_production
+    command: celery -A app.celery beat --loglevel=info --pidfile=/tmp/celerybeat.pid
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql+asyncpg://ms5_user_production:${POSTGRES_PASSWORD_PRODUCTION}@postgres:5432/factory_telemetry
+      - REDIS_URL=redis://:${REDIS_PASSWORD_PRODUCTION}@redis:6379/0
+      - SECRET_KEY=${SECRET_KEY_PRODUCTION}
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - ms5_network_production
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # Flower Monitoring (Celery)
+  flower:
+    build: 
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: ms5_flower_production
+    command: celery -A app.celery flower --port=5555 --basic_auth=${FLOWER_USER_PRODUCTION}:${FLOWER_PASSWORD_PRODUCTION}
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql+asyncpg://ms5_user_production:${POSTGRES_PASSWORD_PRODUCTION}@postgres:5432/factory_telemetry
+      - REDIS_URL=redis://:${REDIS_PASSWORD_PRODUCTION}@redis:6379/0
+      - SECRET_KEY=${SECRET_KEY_PRODUCTION}
+    ports:
+      - "5555:5555"
+    networks:
+      - ms5_network_production
+    depends_on:
+      - celery_worker
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  # AlertManager
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: ms5_alertmanager_production
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data_production:/alertmanager
+    ports:
+      - "9093:9093"
+    networks:
+      - ms5_network_production
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # Node Exporter (System metrics)
+  node_exporter:
+    image: prom/node-exporter:latest
+    container_name: ms5_node_exporter_production
+    command:
+      - '--path.rootfs=/host'
+    volumes:
+      - '/:/host:ro,rslave'
+    ports:
+      - "9100:9100"
+    networks:
+      - ms5_network_production
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+  # Postgres Exporter
+  postgres_exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: ms5_postgres_exporter_production
+    environment:
+      DATA_SOURCE_NAME: "postgresql://ms5_user_production:${POSTGRES_PASSWORD_PRODUCTION}@postgres:5432/factory_telemetry?sslmode=disable"
+    ports:
+      - "9187:9187"
+    networks:
+      - ms5_network_production
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+  # Redis Exporter
+  redis_exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: ms5_redis_exporter_production
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD_PRODUCTION}"
+    ports:
+      - "9121:9121"
+    networks:
+      - ms5_network_production
+    depends_on:
+      - redis
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+volumes:
+  postgres_data_production:
+  redis_data_production:
+  prometheus_data_production:
+  grafana_data_production:
+  minio_data_production:
+  alertmanager_data_production:
+
+networks:
+  ms5_network_production:
+    driver: bridge

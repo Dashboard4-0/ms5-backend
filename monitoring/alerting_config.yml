@@ -1,0 +1,620 @@
+# MS5.0 Floor Dashboard - Phase 10.2 Monitoring and Alerting
+# Comprehensive Alerting Configuration for Production Monitoring
+
+# ============================================================================
+# ALERTING RULES CONFIGURATION
+# Phase 10.2: Monitoring and Alerting - Set up monitoring, business metrics, and alerting thresholds
+# ============================================================================
+
+# Application Metrics Alerts
+application_metrics:
+  # API Performance Alerts
+  api_performance:
+    - name: "API Response Time High"
+      description: "API response time exceeds threshold"
+      metric: "ms5_api_request_duration_seconds"
+      threshold: 2.0
+      comparison: "greater_than"
+      severity: "warning"
+      duration: "5m"
+      labels:
+        service: "api"
+        component: "performance"
+    
+    - name: "API Response Time Critical"
+      description: "API response time critically high"
+      metric: "ms5_api_request_duration_seconds"
+      threshold: 5.0
+      comparison: "greater_than"
+      severity: "critical"
+      duration: "2m"
+      labels:
+        service: "api"
+        component: "performance"
+    
+    - name: "API Error Rate High"
+      description: "API error rate exceeds threshold"
+      metric: "ms5_api_requests_total"
+      threshold: 10
+      comparison: "greater_than"
+      severity: "warning"
+      duration: "3m"
+      labels:
+        service: "api"
+        component: "reliability"
+    
+    - name: "API Error Rate Critical"
+      description: "API error rate critically high"
+      metric: "ms5_api_requests_total"
+      threshold: 50
+      comparison: "greater_than"
+      severity: "critical"
+      duration: "1m"
+      labels:
+        service: "api"
+        component: "reliability"
+
+  # Database Performance Alerts
+  database_performance:
+    - name: "Database Query Slow"
+      description: "Database query duration exceeds threshold"
+      metric: "ms5_db_query_duration_seconds"
+      threshold: 1.0
+      comparison: "greater_than"
+      severity: "warning"
+      duration: "5m"
+      labels:
+        service: "database"
+        component: "performance"
+    
+    - name: "Database Query Critical"
+      description: "Database query duration critically slow"
+      metric: "ms5_db_query_duration_seconds"
+      threshold: 5.0
+      comparison: "greater_than"
+      severity: "critical"
+      duration: "2m"
+      labels:
+        service: "database"
+        component: "performance"
+    
+    - name: "Database Connections High"
+      description: "Database connection count high"
+      metric: "ms5_db_connections_active"
+      threshold: 80
+      comparison: "greater_than"
+      severity: "warning"
+      duration: "5m"
+      labels:
+        service: "database"
+        component: "connections"
+
+  # WebSocket Performance Alerts
+  websocket_performance:
+    - name: "WebSocket Connection Count High"
+      description: "WebSocket connection count exceeds threshold"
+      metric: "ms5_websocket_connections_active"
+      threshold: 100
+      comparison: "greater_than"
+      severity: "warning"
+      duration: "5m"
+      labels:
+        service: "websocket"
+        component: "connections"
+    
+    - name: "WebSocket Message Rate High"
+      description: "WebSocket message rate exceeds threshold"
+      metric: "ms5_websocket_messages_total"
+      threshold: 1000
+      comparison: "greater_than"
+      severity: "info"
+      duration: "1m"
+      labels:
+        service: "websocket"
+        component: "throughput"
+
+  # System Resource Alerts
+  system_resources:
+    - name: "Memory Usage High"
+      description: "System memory usage exceeds threshold"
+      metric: "ms5_system_memory_usage_bytes"
+      threshold: 8589934592  # 8GB
+      comparison: "greater_than"
+      severity: "warning"
+      duration: "5m"
+      labels:
+        service: "system"
+        component: "memory"
+    
+    - name: "Memory Usage Critical"
+      description: "System memory usage critically high"
+      metric: "ms5_system_memory_usage_bytes"
+      threshold: 10737418240  # 10GB
+      comparison: "greater_than"
+      severity: "critical"
+      duration: "2m"
+      labels:
+        service: "system"
+        component: "memory"
+    
+    - name: "CPU Usage High"
+      description: "System CPU usage exceeds threshold"
+      metric: "ms5_system_cpu_usage_percent"
+      threshold: 80
+      comparison: "greater_than"
+      severity: "warning"
+      duration: "5m"
+      labels:
+        service: "system"
+        component: "cpu"
+    
+    - name: "CPU Usage Critical"
+      description: "System CPU usage critically high"
+      metric: "ms5_system_cpu_usage_percent"
+      threshold: 95
+      comparison: "greater_than"
+      severity: "critical"
+      duration: "2m"
+      labels:
+        service: "system"
+        component: "cpu"
+
+  # Cache Performance Alerts
+  cache_performance:
+    - name: "Cache Hit Rate Low"
+      description: "Cache hit rate below threshold"
+      metric: "ms5_cache_hits_total"
+      threshold: 80
+      comparison: "less_than"
+      severity: "warning"
+      duration: "10m"
+      labels:
+        service: "cache"
+        component: "performance"
+    
+    - name: "Cache Miss Rate High"
+      description: "Cache miss rate exceeds threshold"
+      metric: "ms5_cache_misses_total"
+      threshold: 20
+      comparison: "greater_than"
+      severity: "info"
+      duration: "5m"
+      labels:
+        service: "cache"
+        component: "performance"
+
+# Business Metrics Alerts
+business_metrics:
+  # Production Performance Alerts
+  production_performance:
+    - name: "Production Line OEE Low"
+      description: "Production line OEE below threshold"
+      metric: "ms5_production_oee"
+      threshold: 0.75
+      comparison: "less_than"
+      severity: "warning"
+      duration: "15m"
+      labels:
+        service: "production"
+        component: "oee"
+        business_impact: "high"
+    
+    - name: "Production Line OEE Critical"
+      description: "Production line OEE critically low"
+      metric: "ms5_production_oee"
+      threshold: 0.60
+      comparison: "less_than"
+      severity: "critical"
+      duration: "10m"
+      labels:
+        service: "production"
+        component: "oee"
+        business_impact: "critical"
+    
+    - name: "Production Efficiency Low"
+      description: "Production efficiency below threshold"
+      metric: "ms5_production_efficiency_percent"
+      threshold: 80
+      comparison: "less_than"
+      severity: "warning"
+      duration: "20m"
+      labels:
+        service: "production"
+        component: "efficiency"
+        business_impact: "high"
+    
+    - name: "Production Throughput Low"
+      description: "Production throughput below target"
+      metric: "ms5_production_throughput"
+      threshold: 100
+      comparison: "less_than"
+      severity: "warning"
+      duration: "30m"
+      labels:
+        service: "production"
+        component: "throughput"
+        business_impact: "medium"
+
+  # Downtime Alerts
+  downtime_management:
+    - name: "Downtime Percentage High"
+      description: "Downtime percentage exceeds threshold"
+      metric: "ms5_downtime_percentage"
+      threshold: 10
+      comparison: "greater_than"
+      severity: "warning"
+      duration: "15m"
+      labels:
+        service: "production"
+        component: "downtime"
+        business_impact: "high"
+    
+    - name: "Downtime Percentage Critical"
+      description: "Downtime percentage critically high"
+      metric: "ms5_downtime_percentage"
+      threshold: 20
+      comparison: "greater_than"
+      severity: "critical"
+      duration: "10m"
+      labels:
+        service: "production"
+        component: "downtime"
+        business_impact: "critical"
+
+  # Energy Consumption Alerts
+  energy_management:
+    - name: "Energy Consumption High"
+      description: "Energy consumption exceeds threshold"
+      metric: "ms5_energy_consumption_kwh"
+      threshold: 2000
+      comparison: "greater_than"
+      severity: "warning"
+      duration: "30m"
+      labels:
+        service: "production"
+        component: "energy"
+        business_impact: "medium"
+    
+    - name: "Energy Consumption Critical"
+      description: "Energy consumption critically high"
+      metric: "ms5_energy_consumption_kwh"
+      threshold: 3000
+      comparison: "greater_than"
+      severity: "critical"
+      duration: "15m"
+      labels:
+        service: "production"
+        component: "energy"
+        business_impact: "high"
+
+# Quality Management Alerts
+quality_management:
+  # Quality Performance Alerts
+  quality_performance:
+    - name: "Quality Defect Rate High"
+      description: "Quality defect rate exceeds threshold"
+      metric: "ms5_quality_defect_rate"
+      threshold: 5.0
+      comparison: "greater_than"
+      severity: "warning"
+      duration: "20m"
+      labels:
+        service: "quality"
+        component: "defects"
+        business_impact: "high"
+    
+    - name: "Quality Defect Rate Critical"
+      description: "Quality defect rate critically high"
+      metric: "ms5_quality_defect_rate"
+      threshold: 10.0
+      comparison: "greater_than"
+      severity: "critical"
+      duration: "10m"
+      labels:
+        service: "quality"
+        component: "defects"
+        business_impact: "critical"
+    
+    - name: "Quality Check Failure Rate High"
+      description: "Quality check failure rate exceeds threshold"
+      metric: "ms5_quality_checks_total"
+      threshold: 15
+      comparison: "greater_than"
+      severity: "warning"
+      duration: "15m"
+      labels:
+        service: "quality"
+        component: "checks"
+        business_impact: "medium"
+
+# Andon System Alerts
+andon_system:
+  # Andon Event Alerts
+  andon_events:
+    - name: "Andon Events High Priority Active"
+      description: "High priority Andon events active for extended period"
+      metric: "ms5_andon_events_active"
+      threshold: 3
+      comparison: "greater_than"
+      severity: "warning"
+      duration: "5m"
+      labels:
+        service: "andon"
+        component: "events"
+        priority: "high"
+        business_impact: "high"
+    
+    - name: "Andon Events Critical Priority Active"
+      description: "Critical priority Andon events active"
+      metric: "ms5_andon_events_active"
+      threshold: 1
+      comparison: "greater_than"
+      severity: "critical"
+      duration: "2m"
+      labels:
+        service: "andon"
+        component: "events"
+        priority: "critical"
+        business_impact: "critical"
+    
+    - name: "Andon Response Time Slow"
+      description: "Andon event response time exceeds threshold"
+      metric: "ms5_andon_response_time_seconds"
+      threshold: 300  # 5 minutes
+      comparison: "greater_than"
+      severity: "warning"
+      duration: "10m"
+      labels:
+        service: "andon"
+        component: "response_time"
+        business_impact: "medium"
+
+# Maintenance Management Alerts
+maintenance_management:
+  # Maintenance Performance Alerts
+  maintenance_performance:
+    - name: "Maintenance Work Orders Backlog High"
+      description: "Maintenance work order backlog exceeds threshold"
+      metric: "ms5_maintenance_work_orders_active"
+      threshold: 10
+      comparison: "greater_than"
+      severity: "warning"
+      duration: "30m"
+      labels:
+        service: "maintenance"
+        component: "work_orders"
+        business_impact: "medium"
+    
+    - name: "Maintenance Downtime High"
+      description: "Maintenance downtime exceeds threshold"
+      metric: "ms5_maintenance_downtime_minutes"
+      threshold: 120  # 2 hours
+      comparison: "greater_than"
+      severity: "warning"
+      duration: "15m"
+      labels:
+        service: "maintenance"
+        component: "downtime"
+        business_impact: "high"
+
+# Alert Routing Configuration
+alert_routing:
+  # Notification Channels
+  channels:
+    email:
+      enabled: true
+      smtp_server: "smtp.company.com"
+      smtp_port: 587
+      username: "alerts@company.com"
+      password: "${ALERT_EMAIL_PASSWORD}"
+      from_address: "alerts@company.com"
+      to_addresses:
+        - "production-manager@company.com"
+        - "maintenance-manager@company.com"
+        - "quality-manager@company.com"
+    
+    slack:
+      enabled: true
+      webhook_url: "${SLACK_WEBHOOK_URL}"
+      channel: "#ms5-alerts"
+      username: "MS5.0 AlertBot"
+      icon_emoji: ":warning:"
+    
+    sms:
+      enabled: true
+      provider: "twilio"
+      account_sid: "${TWILIO_ACCOUNT_SID}"
+      auth_token: "${TWILIO_AUTH_TOKEN}"
+      from_number: "+1234567890"
+      to_numbers:
+        - "+1234567890"  # Production Manager
+        - "+1234567891"  # Maintenance Manager
+    
+    webhook:
+      enabled: true
+      url: "${ALERT_WEBHOOK_URL}"
+      timeout: 30
+      retry_attempts: 3
+
+  # Routing Rules
+  routing_rules:
+    critical:
+      channels: ["email", "slack", "sms", "webhook"]
+      escalation:
+        enabled: true
+        delay_minutes: 5
+        repeat_interval_minutes: 15
+        max_repeats: 3
+    
+    warning:
+      channels: ["email", "slack"]
+      escalation:
+        enabled: true
+        delay_minutes: 15
+        repeat_interval_minutes: 60
+        max_repeats: 2
+    
+    info:
+      channels: ["slack"]
+      escalation:
+        enabled: false
+
+  # Business Impact Routing
+  business_impact_routing:
+    critical:
+      channels: ["email", "slack", "sms", "webhook"]
+      escalation:
+        delay_minutes: 2
+        repeat_interval_minutes: 10
+        max_repeats: 5
+    
+    high:
+      channels: ["email", "slack", "sms"]
+      escalation:
+        delay_minutes: 5
+        repeat_interval_minutes: 30
+        max_repeats: 3
+    
+    medium:
+      channels: ["email", "slack"]
+      escalation:
+        delay_minutes: 15
+        repeat_interval_minutes: 60
+        max_repeats: 2
+    
+    low:
+      channels: ["slack"]
+      escalation:
+        enabled: false
+
+# Alert Suppression Rules
+alert_suppression:
+  # Maintenance Windows
+  maintenance_windows:
+    - name: "Daily Maintenance Window"
+      description: "Daily maintenance window - suppress non-critical alerts"
+      schedule: "0 2 * * *"  # 2 AM daily
+      duration: "2h"
+      suppress_severities: ["info", "warning"]
+      suppress_services: ["production", "maintenance"]
+    
+    - name: "Weekly Maintenance Window"
+      description: "Weekly maintenance window - suppress all alerts"
+      schedule: "0 1 * * 0"  # 1 AM Sunday
+      duration: "4h"
+      suppress_severities: ["info", "warning", "critical"]
+      suppress_services: ["all"]
+  
+  # Holiday Suppression
+  holiday_suppression:
+    enabled: true
+    suppress_severities: ["info", "warning"]
+    suppress_services: ["production"]
+    holidays:
+      - "2024-12-25"  # Christmas
+      - "2024-12-31"  # New Year's Eve
+      - "2024-01-01"  # New Year's Day
+  
+  # Business Hours Suppression
+  business_hours:
+    enabled: true
+    timezone: "America/New_York"
+    business_hours: "08:00-17:00"
+    weekdays_only: true
+    suppress_severities: ["info"]
+    suppress_services: ["system"]
+
+# Alert Correlation Rules
+alert_correlation:
+  # Correlate related alerts to reduce noise
+  correlation_rules:
+    - name: "Database Performance Correlation"
+      description: "Correlate database slow query alerts with connection alerts"
+      primary_alert: "Database Query Slow"
+      correlated_alerts: ["Database Connections High"]
+      correlation_window: "5m"
+      action: "suppress_correlated"
+    
+    - name: "Production Line Correlation"
+      description: "Correlate production line alerts with related equipment alerts"
+      primary_alert: "Production Line OEE Low"
+      correlated_alerts: ["Downtime Percentage High", "Quality Defect Rate High"]
+      correlation_window: "10m"
+      action: "group_alerts"
+    
+    - name: "System Resource Correlation"
+      description: "Correlate system resource alerts"
+      primary_alert: "Memory Usage High"
+      correlated_alerts: ["CPU Usage High"]
+      correlation_window: "2m"
+      action: "suppress_correlated"
+
+# Dashboard Automation
+dashboard_automation:
+  # Auto-generate dashboards for new metrics
+  auto_dashboard:
+    enabled: true
+    template_path: "/grafana/dashboards/templates/"
+    output_path: "/grafana/dashboards/auto-generated/"
+  
+  # Dashboard refresh schedules
+  refresh_schedules:
+    - dashboard: "MS5.0 System Overview"
+      schedule: "*/5 * * * *"  # Every 5 minutes
+      priority: "high"
+    
+    - dashboard: "MS5.0 Production Dashboard"
+      schedule: "*/2 * * * *"  # Every 2 minutes
+      priority: "high"
+    
+    - dashboard: "MS5.0 Quality Dashboard"
+      schedule: "*/10 * * * *"  # Every 10 minutes
+      priority: "medium"
+    
+    - dashboard: "MS5.0 Maintenance Dashboard"
+      schedule: "*/15 * * * *"  # Every 15 minutes
+      priority: "medium"
+    
+    - dashboard: "MS5.0 Energy Dashboard"
+      schedule: "*/30 * * * *"  # Every 30 minutes
+      priority: "low"
+
+# Alerting Thresholds Summary
+thresholds_summary:
+  api_performance:
+    response_time_warning: "2.0s"
+    response_time_critical: "5.0s"
+    error_rate_warning: "10%"
+    error_rate_critical: "50%"
+  
+  production_performance:
+    oee_warning: "75%"
+    oee_critical: "60%"
+    efficiency_warning: "80%"
+    downtime_warning: "10%"
+    downtime_critical: "20%"
+  
+  quality_performance:
+    defect_rate_warning: "5%"
+    defect_rate_critical: "10%"
+    check_failure_warning: "15%"
+  
+  system_resources:
+    memory_warning: "8GB"
+    memory_critical: "10GB"
+    cpu_warning: "80%"
+    cpu_critical: "95%"
+  
+  andon_system:
+    high_priority_active: "3 events"
+    critical_priority_active: "1 event"
+    response_time_warning: "5 minutes"
+
+# Alerting Configuration Validation
+validation:
+  required_fields: ["name", "description", "metric", "threshold", "comparison", "severity", "duration"]
+  valid_severities: ["info", "warning", "critical"]
+  valid_comparisons: ["greater_than", "less_than", "equals", "not_equals"]
+  valid_durations: ["1m", "2m", "5m", "10m", "15m", "30m", "1h", "2h"]
+  valid_channels: ["email", "slack", "sms", "webhook"]
+  valid_business_impacts: ["low", "medium", "high", "critical"]

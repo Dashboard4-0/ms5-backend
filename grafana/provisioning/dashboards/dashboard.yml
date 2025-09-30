@@ -1,0 +1,14 @@
+# MS5.0 Floor Dashboard - Grafana Dashboard Provisioning Configuration
+
+apiVersion: 1
+
+providers:
+  - name: 'MS5.0 Dashboards'
+    orgId: 1
+    folder: 'MS5.0 Floor Dashboard'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
