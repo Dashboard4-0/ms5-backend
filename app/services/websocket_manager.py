@@ -205,6 +205,10 @@ class WebSocketManager:
         logger.debug("Subscribed to downtime events", 
                    connection_id=connection_id, line_id=line_id, equipment_code=equipment_code)
     
+    def subscribe_to_downtime(self, connection_id: str, line_id: str = None, equipment_code: str = None):
+        """Subscribe a connection to downtime events (alias for subscribe_to_downtime_events)."""
+        self.subscribe_to_downtime_events(connection_id, line_id, equipment_code)
+    
     def subscribe_to_andon_events(self, connection_id: str, line_id: str = None):
         """Subscribe a connection to Andon events."""
         if connection_id not in self.subscriptions:
@@ -244,6 +248,10 @@ class WebSocketManager:
         
         logger.debug("Subscribed to escalation events", 
                    connection_id=connection_id, escalation_id=escalation_id, priority=priority)
+    
+    def subscribe_to_escalation(self, connection_id: str, escalation_id: str = None, priority: str = None):
+        """Subscribe a connection to escalation events (alias for subscribe_to_escalation_events)."""
+        self.subscribe_to_escalation_events(connection_id, escalation_id, priority)
     
     def subscribe_to_quality_alerts(self, connection_id: str, line_id: str = None):
         """Subscribe a connection to quality alerts."""
@@ -362,6 +370,10 @@ class WebSocketManager:
         logger.debug("Unsubscribed from downtime events", 
                    connection_id=connection_id, line_id=line_id, equipment_code=equipment_code)
     
+    def unsubscribe_from_downtime(self, connection_id: str, line_id: str = None, equipment_code: str = None):
+        """Unsubscribe a connection from downtime events (alias for unsubscribe_from_downtime_events)."""
+        self.unsubscribe_from_downtime_events(connection_id, line_id, equipment_code)
+    
     def unsubscribe_from_andon_events(self, connection_id: str, line_id: str = None):
         """Unsubscribe a connection from Andon events."""
         if connection_id not in self.subscriptions:
@@ -397,6 +409,10 @@ class WebSocketManager:
         
         logger.debug("Unsubscribed from escalation events", 
                    connection_id=connection_id, escalation_id=escalation_id, priority=priority)
+    
+    def unsubscribe_from_escalation(self, connection_id: str, escalation_id: str = None, priority: str = None):
+        """Unsubscribe a connection from escalation events (alias for unsubscribe_from_escalation_events)."""
+        self.unsubscribe_from_escalation_events(connection_id, escalation_id, priority)
     
     def unsubscribe_from_quality_alerts(self, connection_id: str, line_id: str = None):
         """Unsubscribe a connection from quality alerts."""
